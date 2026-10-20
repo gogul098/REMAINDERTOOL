@@ -1,0 +1,27 @@
+name: ntfy relay
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly; ntfy's window is 3 days, so this is plenty
+  workflow_dispatch:
+
+concurrency:
+  group: relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.3
+      - run: python relay/relay.py
+        env:
+          DEADLINES_URL: ${{ secrets.DEADLINES_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}

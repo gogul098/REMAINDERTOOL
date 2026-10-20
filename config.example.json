@@ -1,0 +1,8 @@
+{
+  "chrome_user_data_dir": null,
+  "chrome_profile": "Profile 1",
+  "chrome_exe": null,
+  "bookmark_folders": ["Bookmarks bar/Courses"],
+  "timezone": "Asia/Kolkata",
+  "db_path": "data/courses.db"
+}
