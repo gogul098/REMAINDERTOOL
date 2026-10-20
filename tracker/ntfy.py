@@ -20,9 +20,10 @@ from .timeutil import from_iso, iso_to_local, to_iso
 log = logging.getLogger("tracker.ntfy")
 
 
-def desired(task, now) -> dict:
+def desired(task, now, rem=None) -> dict:
     """kind -> fire time. A fire time <= now means 'send immediately'."""
-    return alerts.alert_times(from_iso(task["deadline_utc"]), now, alerts.due_kind(task["deadline_utc"], now))
+    return alerts.alert_times(from_iso(task["deadline_utc"]), now,
+                              alerts.current_kind(task["deadline_utc"], now, rem), rem)
 
 
 def _auth() -> dict:
@@ -34,7 +35,8 @@ def _publish(cfg: Config, http, task, kind: str, fire, now) -> None:
     when = iso_to_local(task["deadline_utc"], cfg.tz).strftime("%a %d %b, %I:%M %p")
     url, headers, body = alerts.build_request(
         cfg.ntfy["server"], cfg.ntfy["topic"], task["id"], kind, task["title"], task["url"], fire, now,
-        get_secret("NTFY_TOKEN"), task["category"], when, cfg.ntfy.get("app_url"), cfg.ntfy.get("icon_url"))
+        get_secret("NTFY_TOKEN"), task["category"], when, cfg.ntfy.get("app_url"), cfg.ntfy.get("icon_url"),
+        cfg.reminder_settings)
     r = http.post(url, data=body, headers=headers, timeout=15)
     r.raise_for_status()
 
@@ -54,7 +56,7 @@ def reconcile(cfg: Config, conn, now, http=requests) -> bool:
     rows = {(r["task_id"], r["kind"]): r for r in conn.execute("SELECT * FROM ntfy_schedule")}
     want = {}
     for t in db.list_tasks(conn, "ACTIVE", include_missing=True):
-        for kind, fire in desired(t, now).items():
+        for kind, fire in desired(t, now, cfg.reminder_settings).items():
             want[(t["id"], kind)] = (t, fire)
     failures = []
 

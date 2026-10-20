@@ -1,27 +1,28 @@
-"""Notification state machine + Windows toasts. (ntfy push is added in Phase 3.)"""
+"""Notification state machine + Windows toasts."""
 import logging
 import subprocess
 import sys
 from datetime import datetime
 
 from . import db
-from .alerts import due_kind
+from .alerts import Reminders, current_kind, describe, due_kind  # noqa: F401  (due_kind re-exported)
 from .config import ROOT, Config
-from .timeutil import countdown, from_iso, now_utc, to_iso
+from .timeutil import from_iso, iso_to_local, now_utc, to_iso
 
 log = logging.getLogger("tracker.notify")
 
 DETACHED = 0x00000008 | 0x08000000  # DETACHED_PROCESS | CREATE_NO_WINDOW
 
 
-def evaluate(conn, now: datetime, send) -> list[tuple[int, str]]:
+def evaluate(conn, now: datetime, send, rem: Reminders | None = None) -> list[tuple[int, str]]:
     """Fire each (task, kind, deadline) at most once. `send(task, kind)` returns True on success.
 
-    The unique key includes the deadline, so changing a deadline re-arms every alert.
+    With `rem`, the daily countdown reminders are included. The unique key includes the deadline, so changing a
+    deadline re-arms every alert.
     """
     fired = []
     for t in db.list_tasks(conn, "ACTIVE", include_missing=True):
-        kind = due_kind(t["deadline_utc"], now)
+        kind = current_kind(t["deadline_utc"], now, rem)
         if kind is None:
             continue
         seen = conn.execute(
@@ -42,18 +43,22 @@ def evaluate(conn, now: datetime, send) -> list[tuple[int, str]]:
     return fired
 
 
-def toast_title(task, kind: str, now: datetime) -> str:
-    if kind == "OVERDUE":
-        return "Overdue"
-    return f"Due in {countdown(task['deadline_utc'], now)}"
+def toast_text(cfg: Config, task, kind: str) -> tuple[str, str]:
+    """(title, plain body) for a Windows toast."""
+    when = iso_to_local(task["deadline_utc"], cfg.tz).strftime("%a %d %b, %I:%M %p")
+    headline, body = describe(kind, task["title"], when, task["category"], cfg.reminder_settings)
+    if kind in ("24H", "2H", "OVERDUE"):  # the headline already says it; show the course name then the details
+        return headline.split(": ", 1)[0], f"{task['title']}\n{body.replace('**', '')}"
+    return headline, body.replace("**", "")
 
 
 def make_toast_sender(cfg: Config, now: datetime):
     """Spawn a detached worker per toast so the daemon never blocks waiting for a click."""
 
     def send(task, kind: str) -> bool:
-        args = [sys.executable, "-m", "tracker.toast_worker", toast_title(task, kind, now),
-                f"{task['title']}\n{task['category']}", task["url"], cfg.chrome_profile, cfg.chrome_exe or ""]
+        title, body = toast_text(cfg, task, kind)
+        args = [sys.executable, "-m", "tracker.toast_worker", title, body, task["url"], cfg.chrome_profile,
+                cfg.chrome_exe or ""]
         try:
             subprocess.Popen(args, cwd=ROOT, creationflags=DETACHED, close_fds=True)
             return True

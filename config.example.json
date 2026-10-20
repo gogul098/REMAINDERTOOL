@@ -2,7 +2,16 @@
   "chrome_user_data_dir": null,
   "chrome_profile": "Profile 1",
   "chrome_exe": null,
-  "bookmark_folders": ["Bookmarks bar/Courses"],
+  "bookmark_folders": [
+    "Bookmarks bar/Courses"
+  ],
   "timezone": "Asia/Kolkata",
-  "db_path": "data/courses.db"
+  "db_path": "data/courses.db",
+  "reminders": {
+    "enabled": true,
+    "horizon_days": 10,
+    "time": "09:00",
+    "study_time": "19:00",
+    "study_minutes": 45
+  }
 }

@@ -53,6 +53,31 @@ MIGRATIONS = [
         PRIMARY KEY (task_id, kind)
     );
     """,
+    # v3: daily countdown reminders add kinds D2..D30, so drop the fixed list of kinds on both tables
+    """
+    CREATE TABLE notifications_new (
+        id INTEGER PRIMARY KEY,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        deadline_utc_at_send TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        UNIQUE (task_id, kind, deadline_utc_at_send)
+    );
+    INSERT INTO notifications_new SELECT id, task_id, kind, deadline_utc_at_send, sent_at FROM notifications;
+    DROP TABLE notifications;
+    ALTER TABLE notifications_new RENAME TO notifications;
+
+    CREATE TABLE ntfy_schedule_new (
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        deadline_utc TEXT NOT NULL,
+        fire_at TEXT NOT NULL,
+        PRIMARY KEY (task_id, kind)
+    );
+    INSERT INTO ntfy_schedule_new SELECT task_id, kind, deadline_utc, fire_at FROM ntfy_schedule;
+    DROP TABLE ntfy_schedule;
+    ALTER TABLE ntfy_schedule_new RENAME TO ntfy_schedule;
+    """,
 ]
 
 

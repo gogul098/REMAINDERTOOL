@@ -19,7 +19,7 @@ from tracker import alerts  # noqa: E402  (stdlib-only module, no config or DB n
 
 
 def run(tasks: list[dict], server: str, topic: str, token: str | None, now: datetime, post=requests.post,
-        app_url: str | None = None) -> int:
+        app_url: str | None = None, rem: alerts.Reminders | None = None) -> int:
     """Returns the number of failed posts."""
     failures = 0
     for t in tasks:
@@ -27,10 +27,10 @@ def run(tasks: list[dict], server: str, topic: str, token: str | None, now: date
             print(f"skip {t.get('title')!r}: no id yet (laptop hasn't pushed the new format)")
             continue
         deadline = datetime.fromisoformat(t["deadline_iso"]).astimezone(timezone.utc)
-        for kind, fire in alerts.alert_times(deadline, now).items():
+        for kind, fire in alerts.alert_times(deadline, now, rem=rem).items():
             url, headers, body = alerts.build_request(
                 server, topic, t["id"], kind, t["title"], t["url"], fire, now, token,
-                t.get("category", ""), t.get("deadline_text", ""), app_url)
+                t.get("category", ""), t.get("deadline_text", ""), app_url, None, rem)
             try:
                 post(url, data=body, headers=headers, timeout=15).raise_for_status()
                 print(f"scheduled {kind} for task {t['id']} at {fire.isoformat()}")
@@ -47,9 +47,11 @@ def _env(name: str, default: str = "") -> str:
 def main() -> int:
     r = requests.get(_env("DEADLINES_URL"), timeout=15)
     r.raise_for_status()
-    failures = run(r.json()["tasks"], _env("NTFY_SERVER") or "https://ntfy.sh",
+    data = r.json()
+    rem = alerts.Reminders.from_payload(data["settings"]) if data.get("settings") else None
+    failures = run(data["tasks"], _env("NTFY_SERVER") or "https://ntfy.sh",
                    _env("NTFY_TOPIC"), _env("NTFY_TOKEN") or None, datetime.now(timezone.utc),
-                   app_url=_env("APP_URL") or None)
+                   app_url=_env("APP_URL") or None, rem=rem)
     return 1 if failures else 0
 
 

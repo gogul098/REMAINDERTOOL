@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .alerts import Reminders
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -24,10 +26,18 @@ class Config:
     wallpaper: dict
     mobile: dict
     ntfy: dict
+    reminders: dict
 
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    @property
+    def reminder_settings(self) -> Reminders | None:
+        """None when the daily countdown plan is switched off (reminders.enabled = false)."""
+        if not self.reminders.get("enabled", True):
+            return None
+        return Reminders.from_dict(self.reminders, self.timezone)
 
     @property
     def bookmarks_files(self) -> list[Path]:
@@ -80,4 +90,10 @@ def load_config(path: Path | None = None) -> Config:
     if topic and (len(topic) < 20 or not re.fullmatch(r"[A-Za-z0-9_-]+", topic)):
         raise ConfigError("ntfy.topic must be 20+ chars of letters, digits, _ or - (it is the only thing keeping it private)")
     ntfy["server"] = ntfy["server"].rstrip("/")
-    return Config(udd, profile, raw.get("chrome_exe"), folders, tz, db_path, wp, mobile, ntfy)
+    reminders = {"enabled": True, "horizon_days": 10, "time": "09:00", "study_time": "19:00", "study_minutes": 45,
+                 **raw.get("reminders", {})}
+    try:
+        Reminders.from_dict(reminders, tz)
+    except (ValueError, TypeError) as e:
+        raise ConfigError(str(e)) from e
+    return Config(udd, profile, raw.get("chrome_exe"), folders, tz, db_path, wp, mobile, ntfy, reminders)

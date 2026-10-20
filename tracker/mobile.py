@@ -45,7 +45,10 @@ def build_payload(conn, cfg: Config) -> str:
         }
         for r in rows
     ]
-    return json.dumps({"tasks": tasks}, indent=2, ensure_ascii=False, sort_keys=True)
+    payload = {"tasks": tasks}
+    if cfg.reminder_settings:
+        payload["settings"] = cfg.reminder_settings.to_dict()  # the relay and the app follow the same plan
+    return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True)
 
 
 TEXT_FILENAME = "widget.txt"

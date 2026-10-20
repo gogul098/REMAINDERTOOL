@@ -49,7 +49,7 @@ def run_once(cfg: Config, wait_seconds: float = 0) -> bool:
             now = now_utc()
             for step, fn in (
                 ("backup", lambda: backup.backup_daily(cfg.db_path, now.astimezone(cfg.tz))),
-                ("notifications", lambda: notify.evaluate(conn, now, notify.make_toast_sender(cfg, now))),
+                ("notifications", lambda: notify.evaluate(conn, now, notify.make_toast_sender(cfg, now), cfg.reminder_settings)),
                 ("wallpaper", lambda: wallpaper.refresh(cfg, conn, now)),
                 # Network last, so a slow connection never delays the desktop. Queueing both targets on every
                 # pass also tops up ntfy's 3-day scheduling window.

@@ -49,7 +49,7 @@ def conn(tmp_path):
 @pytest.fixture
 def cfg(tmp_path):
     base = load_config()
-    return replace(base, ntfy={"server": "https://ntfy.example", "topic": "x" * 24})
+    return replace(base, ntfy={"server": "https://ntfy.example", "topic": "x" * 24}, reminders={"enabled": False})
 
 
 def add(conn, guid, hours):

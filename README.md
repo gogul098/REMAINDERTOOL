@@ -15,6 +15,16 @@ SQLite (`data/courses.db`) is the single source of truth; every outbound sync is
 
 Open the dashboard with the "Course Deadlines" shortcut, or `run_dashboard.bat`.
 
+## Countdown plan (daily reminders)
+
+From `reminders.horizon_days` (default 10) days before a deadline, you get one reminder a day at `reminders.time`
+(09:00), as a Windows toast and a phone alert. The first is the "10-day countdown starts" kickoff, then "9 days left",
+"8 days left" and so on down to 2 days; the usual 24-hour, 2-hour and overdue alerts take over after that. Each one
+says how much to do today (about 1/N of what's left, N being the days left), when to study
+(`study_minutes` at `study_time`) and a tip for that stage. The pacing is generic: the tracker doesn't know how big a
+course is. Tasks activated with fewer days left start at their current day. Change the values in the `reminders`
+block of `config.json`, or set `"enabled": false` to turn the plan off.
+
 ## Phone app (installable web app)
 
 `docs/` is a small installable web app: live countdowns, colour-coded cards, works offline from its last data.
