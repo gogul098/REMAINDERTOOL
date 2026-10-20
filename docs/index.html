@@ -46,6 +46,19 @@
     -webkit-box-orient: vertical; overflow: hidden; }
   .hero .time { font-size: clamp(26px, 8.4vw, 38px); font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
+  .plan { margin-top: 12px; padding: 16px 18px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+  .plan-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .plan-kicker { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+  .plan-days { font-weight: 750; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .plan-title { font-weight: 650; font-size: 16px; margin: 4px 0 12px; display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; }
+  .dots { display: flex; gap: 4px; margin-bottom: 14px; }
+  .dots i { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-2); }
+  .dots i.on { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .dots i.now { background: var(--accent-2); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 35%, transparent); }
+  .step { display: flex; gap: 10px; font-size: 14px; margin-top: 8px; }
+  .step b { min-width: 52px; color: var(--muted); font-weight: 650; }
+
   .group { margin: 22px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
     color: var(--muted); }
   .card { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--line);
@@ -106,7 +119,37 @@
   "use strict";
   var KEY_URL = "deadlines.url", KEY_CACHE = "deadlines.cache";
   var DAY = 86400, HORIZON = 14 * DAY; // bar fills as a deadline comes within 14 days
-  var tasks = [], lastOk = 0;
+  var tasks = [], lastOk = 0, settings = null; // settings = the reminder plan from the tracker (timezone, horizon, study slot)
+
+  // ---- countdown plan (mirrors tracker/alerts.py: same day counting, same wording) ----
+  function tzDate(secs, tz) { return new Date(secs * 1000).toLocaleDateString("en-CA", { timeZone: tz }); } // YYYY-MM-DD
+  function daysLeft(t, now) { // calendar days from today to the deadline's date, in the tracker's timezone
+    return Math.round((Date.parse(tzDate(epoch(t), settings.timezone)) - Date.parse(tzDate(now, settings.timezone))) / 864e5);
+  }
+  function clock(hhmm) { var p = hhmm.split(":"), h = +p[0]; return (h % 12 || 12) + ":" + p[1] + " " + (h >= 12 ? "PM" : "AM"); }
+  function tip(n, horizon) {
+    if (n >= horizon) return "Skim the whole syllabus, list every module, and split them evenly across the days.";
+    if (n >= 6) return "Take one module end to end, then write down 3 key takeaways.";
+    if (n >= 3) return "Work through the modules in order, and start any quiz or project early.";
+    return "Finish the last modules today so tomorrow is a buffer for the final quiz or project.";
+  }
+  function planCard(t, n) {
+    var H = settings.horizon_days, c = el("div", "plan");
+    var top = el("div", "plan-top");
+    top.appendChild(el("div", "plan-kicker", n >= H ? "Countdown starts today" : "Today's plan"));
+    top.appendChild(el("div", "plan-days", n + " days left"));
+    c.appendChild(top);
+    c.appendChild(el("div", "plan-title", t.title));
+    var dots = el("div", "dots"), today = H - n + 1; // day 1 of H is the kickoff
+    for (var i = 1; i <= H; i++) { var d = document.createElement("i"); d.className = i < today ? "on" : i === today ? "now" : ""; dots.appendChild(d); }
+    c.appendChild(dots);
+    [["Do", "About 1/" + n + " of what's left of the course."],
+     ["When", settings.study_minutes + " min at " + clock(settings.study_time) + "."],
+     ["How", tip(n, H)]].forEach(function (r) {
+      var s = el("div", "step"); s.appendChild(el("b", null, r[0])); s.appendChild(el("span", null, r[1])); c.appendChild(s);
+    });
+    return c;
+  }
 
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
   function $(id) { return document.getElementById(id); }
@@ -154,6 +197,12 @@
     h.appendChild(el("div", "title", first.title));
     var big = el("div", "time", fmt(fs)); big.setAttribute("data-live", epoch(first)); h.appendChild(big);
     hero.appendChild(h);
+    if (settings) { // today's plan for every course inside its countdown window (more than 24h left; then the 24h alert rules)
+      sorted.forEach(function (t) {
+        var secs = epoch(t) - now, n = daysLeft(t, now);
+        if (secs > DAY && n >= 2 && n <= settings.horizon_days) hero.appendChild(planCard(t, n));
+      });
+    }
     $("sub").textContent = sorted.length + " active · next " + (fs < 0 ? "is overdue" : "in " + fmt(fs).split(" ").slice(0, 2).join(" "));
 
     var current = null;
@@ -192,12 +241,12 @@
     if (!url) { show("setup"); $("sub").textContent = "Not connected"; return; }
     show("app");
     var cached = store(KEY_CACHE);
-    if (cached && !tasks.length) { try { var c = JSON.parse(cached); tasks = c.tasks; lastOk = c.at; render(); tick(); } catch (e) {} }
+    if (cached && !tasks.length) { try { var c = JSON.parse(cached); tasks = c.tasks; settings = c.settings || null; lastOk = c.at; render(); tick(); } catch (e) {} }
     var bust = (url.indexOf("?") < 0 ? "?" : "&") + "_=" + Math.floor(Date.now() / 60000); // beat the 5-min CDN cache a little
     fetch(url + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function (data) {
-        tasks = data.tasks || []; lastOk = Date.now();
-        store(KEY_CACHE, JSON.stringify({ tasks: tasks, at: lastOk }));
+        tasks = data.tasks || []; settings = data.settings || null; lastOk = Date.now();
+        store(KEY_CACHE, JSON.stringify({ tasks: tasks, settings: settings, at: lastOk }));
         render(); tick();
       })
       .catch(function (e) {
