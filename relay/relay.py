@@ -37,11 +37,15 @@ def run(tasks: list[dict], server: str, topic: str, token: str | None, now: date
     return failures
 
 
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, default).strip()  # pasted secrets often carry a trailing newline
+
+
 def main() -> int:
-    r = requests.get(os.environ["DEADLINES_URL"], timeout=15)
+    r = requests.get(_env("DEADLINES_URL"), timeout=15)
     r.raise_for_status()
-    failures = run(r.json()["tasks"], os.environ.get("NTFY_SERVER", "https://ntfy.sh"),
-                   os.environ["NTFY_TOPIC"], os.environ.get("NTFY_TOKEN") or None, datetime.now(timezone.utc))
+    failures = run(r.json()["tasks"], _env("NTFY_SERVER") or "https://ntfy.sh",
+                   _env("NTFY_TOPIC"), _env("NTFY_TOKEN") or None, datetime.now(timezone.utc))
     return 1 if failures else 0
 
 
