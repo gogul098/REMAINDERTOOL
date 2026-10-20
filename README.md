@@ -15,6 +15,14 @@ SQLite (`data/courses.db`) is the single source of truth; every outbound sync is
 
 Open the dashboard with the "Course Deadlines" shortcut, or `run_dashboard.bat`.
 
+## Phone app (installable web app)
+
+`docs/` is a small installable web app: live countdowns, colour-coded cards, works offline from its last data.
+Turn it on once: repo Settings > Pages > Source "Deploy from a branch", branch `main`, folder `/docs`.
+Then open https://gogul098.github.io/REMAINDERTOOL/ in Chrome on the phone, paste the deadlines link when asked
+(it is stored only on the phone, never in the repo), and use menu > "Add to Home screen".
+Set `ntfy.app_url` (and optionally `ntfy.icon_url`) in `config.json` so alerts get an "Open tracker" button.
+
 ## Alerts when the laptop is off (optional relay)
 
 ntfy can schedule at most 3 days ahead, so the laptop schedules what fits and tops up on each hourly run. To keep
@@ -27,6 +35,7 @@ topping up while the laptop is off, push this folder to a GitHub repository and 
 | `NTFY_TOPIC` | the topic in `config.json` |
 | `NTFY_SERVER` | optional, default `https://ntfy.sh` |
 | `NTFY_TOKEN` | optional |
+| `APP_URL` | optional, the Pages URL; adds an "Open tracker" button to relay alerts |
 
 `.github/workflows/relay.yml` runs hourly. `config.json`, `.env` and `data/` are git-ignored, so none of your
 data or secrets is in the repo. GitHub pauses scheduled workflows after 60 days without repo activity; re-enable

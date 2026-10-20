@@ -15,7 +15,7 @@ from . import alerts, db
 from .alerts import seq_id
 from .config import Config
 from .credentials import get_secret
-from .timeutil import from_iso, to_iso
+from .timeutil import from_iso, iso_to_local, to_iso
 
 log = logging.getLogger("tracker.ntfy")
 
@@ -31,8 +31,10 @@ def _auth() -> dict:
 
 
 def _publish(cfg: Config, http, task, kind: str, fire, now) -> None:
-    url, headers, body = alerts.build_request(cfg.ntfy["server"], cfg.ntfy["topic"], task["id"], kind,
-                                              task["title"], task["url"], fire, now, get_secret("NTFY_TOKEN"))
+    when = iso_to_local(task["deadline_utc"], cfg.tz).strftime("%a %d %b, %I:%M %p")
+    url, headers, body = alerts.build_request(
+        cfg.ntfy["server"], cfg.ntfy["topic"], task["id"], kind, task["title"], task["url"], fire, now,
+        get_secret("NTFY_TOKEN"), task["category"], when, cfg.ntfy.get("app_url"), cfg.ntfy.get("icon_url"))
     r = http.post(url, data=body, headers=headers, timeout=15)
     r.raise_for_status()
 

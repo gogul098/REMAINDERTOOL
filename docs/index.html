@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deadlines</title>
+<meta name="theme-color" content="#0e1014">
+<meta name="description" content="Course deadlines with live countdowns">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0e1014; --surface: #171a21; --surface-2: #1f232c; --text: #f3f4f6; --muted: #98a0ae;
+    --line: #262b36; --accent: #f0606b; --accent-2: #fde047;
+    --red: #ef4444; --amber: #f59e0b; --green: #22c55e;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f3ee; --surface: #ffffff; --surface-2: #f0ece5; --text: #15171c; --muted: #5d6573; --line: #e4ded4;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f6f3ee; --surface: #ffffff; --surface-2: #f0ece5; --text: #15171c; --muted: #5d6573; --line: #e4ded4;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  main { max-width: 560px; margin: 0 auto; padding: 0 16px 48px; }
+
+  header { padding: 28px 0 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; line-height: 1.1; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text;
+    background-clip: text; color: transparent; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .tools { display: flex; gap: 8px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--text); font-size: 18px; cursor: pointer; }
+  .icon-btn:active { transform: scale(.95); }
+
+  .hero { margin: 16px 0 8px; padding: 18px; border-radius: 20px; color: #fff; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--hero-a, #22c55e), var(--hero-b, #15803d)); }
+  .hero .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+  .hero .title { font-size: 18px; font-weight: 650; margin: 4px 0 10px; display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden; }
+  .hero .time { font-size: clamp(26px, 8.4vw, 38px); font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+  .group { margin: 22px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); }
+  .card { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 18px; padding: 14px 16px 16px 20px; margin-bottom: 10px; position: relative; overflow: hidden; }
+  .card:active { transform: scale(.985); }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c); }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .name { font-weight: 650; font-size: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; }
+  .cd { font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--c); font-size: 16px; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { background: var(--surface-2); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+  .bar { height: 5px; border-radius: 999px; background: var(--surface-2); margin-top: 12px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--c); border-radius: 999px; transition: width .6s ease; }
+
+  .empty, .setup { text-align: center; padding: 56px 12px; color: var(--muted); }
+  .empty b { display: block; font-size: 20px; color: var(--text); margin-bottom: 6px; }
+  .setup h2 { color: var(--text); margin: 0 0 8px; }
+  .setup input { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+    color: var(--text); font-size: 15px; margin: 16px 0 10px; }
+  .btn { background: linear-gradient(90deg, var(--accent), #f4864f); color: #fff; border: 0; border-radius: 14px;
+    padding: 13px 22px; font-size: 16px; font-weight: 650; cursor: pointer; }
+  .status { text-align: center; color: var(--muted); font-size: 12px; margin-top: 26px; }
+  .err { color: var(--amber); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1><span>Deadlines</span></h1>
+      <div class="sub" id="sub">Loading…</div>
+    </div>
+    <div class="tools">
+      <button class="icon-btn" id="refresh" title="Refresh" aria-label="Refresh">↻</button>
+      <button class="icon-btn" id="settings" title="Change data link" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <section id="setup" class="setup" hidden>
+    <h2>Connect your deadlines</h2>
+    <div>Paste the deadlines link from your tracker (the Gist <b>deadlines.json</b> URL). It stays on this device.</div>
+    <input id="url" type="url" inputmode="url" placeholder="https://gist.githubusercontent.com/…/deadlines.json" autocomplete="off">
+    <button class="btn" id="save">Save and load</button>
+  </section>
+
+  <section id="app" hidden>
+    <div id="hero"></div>
+    <div id="list"></div>
+  </section>
+
+  <div class="status" id="status"></div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var KEY_URL = "deadlines.url", KEY_CACHE = "deadlines.cache";
+  var DAY = 86400, HORIZON = 14 * DAY; // bar fills as a deadline comes within 14 days
+  var tasks = [], lastOk = 0;
+
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
+  function $(id) { return document.getElementById(id); }
+
+  function urlFromLocation() {
+    var q = new URLSearchParams(location.search).get("u") || new URLSearchParams(location.hash.slice(1)).get("u");
+    if (q) { store(KEY_URL, q); history.replaceState(null, "", location.pathname); }
+    return store(KEY_URL);
+  }
+
+  function epoch(t) {
+    if (typeof t.deadline_epoch === "number") return t.deadline_epoch;
+    return Math.floor(Date.parse(t.deadline_iso) / 1000);
+  }
+  function color(secs) { return secs < DAY ? "var(--red)" : secs < 3 * DAY ? "var(--amber)" : "var(--green)"; }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function fmt(secs) {
+    var over = secs < 0, s = Math.abs(Math.floor(secs));
+    var d = Math.floor(s / DAY), h = Math.floor(s % DAY / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60, out;
+    if (d) out = d + "d " + pad(h) + "h " + pad(m) + "m";
+    else out = pad(h) + "h " + pad(m) + "m " + pad(sec) + "s";
+    return over ? "overdue " + out : out;
+  }
+  function groupOf(secs) {
+    return secs < 0 ? "Overdue" : secs < DAY ? "Next 24 hours" : secs < 7 * DAY ? "This week" : "Later";
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function render() {
+    var now = Date.now() / 1000;
+    var sorted = tasks.slice().sort(function (a, b) { return epoch(a) - epoch(b); });
+    var list = $("list"), hero = $("hero");
+    list.textContent = ""; hero.textContent = "";
+
+    if (!sorted.length) {
+      var e = el("div", "empty"); e.appendChild(el("b", null, "All clear")); e.appendChild(el("span", null, "No active deadlines."));
+      list.appendChild(e); $("sub").textContent = "Nothing due"; return;
+    }
+
+    var first = sorted[0], fs = epoch(first) - now;
+    var h = el("div", "hero");
+    h.style.setProperty("--hero-a", fs < DAY ? "#ef4444" : fs < 3 * DAY ? "#f59e0b" : "#22c55e");
+    h.style.setProperty("--hero-b", fs < DAY ? "#b91c1c" : fs < 3 * DAY ? "#b45309" : "#15803d");
+    h.appendChild(el("div", "label", fs < 0 ? "Overdue" : "Up next"));
+    h.appendChild(el("div", "title", first.title));
+    var big = el("div", "time", fmt(fs)); big.setAttribute("data-live", epoch(first)); h.appendChild(big);
+    hero.appendChild(h);
+    $("sub").textContent = sorted.length + " active · next " + (fs < 0 ? "is overdue" : "in " + fmt(fs).split(" ").slice(0, 2).join(" "));
+
+    var current = null;
+    sorted.forEach(function (t) {
+      var secs = epoch(t) - now, g = groupOf(secs);
+      if (g !== current) { list.appendChild(el("div", "group", g)); current = g; }
+      var a = el("a", "card"); a.href = t.url; a.target = "_blank"; a.rel = "noopener";
+      a.style.setProperty("--c", color(secs));
+      var row = el("div", "row"); row.appendChild(el("div", "name", t.title));
+      var cd = el("div", "cd", fmt(secs)); cd.setAttribute("data-live", epoch(t)); row.appendChild(cd);
+      a.appendChild(row);
+      var meta = el("div", "meta");
+      meta.appendChild(el("span", null, t.deadline_text || new Date(epoch(t) * 1000).toLocaleString()));
+      if (t.category) meta.appendChild(el("span", "chip", String(t.category).split("/").pop()));
+      a.appendChild(meta);
+      var bar = el("div", "bar"), fill = document.createElement("i");
+      fill.style.width = Math.max(4, Math.min(100, (1 - secs / HORIZON) * 100)) + "%";
+      bar.appendChild(fill); a.appendChild(bar);
+      list.appendChild(a);
+    });
+  }
+
+  function tick() { // only rewrite the countdown text each second; layout is untouched
+    var now = Date.now() / 1000;
+    document.querySelectorAll("[data-live]").forEach(function (n) { n.textContent = fmt(Number(n.getAttribute("data-live")) - now); });
+    if (lastOk) {
+      var mins = Math.round((Date.now() - lastOk) / 60000);
+      $("status").textContent = (navigator.onLine ? "" : "Offline · ") + "Updated " + (mins < 1 ? "just now" : mins + " min ago");
+    }
+  }
+
+  function show(which) { $("setup").hidden = which !== "setup"; $("app").hidden = which !== "app"; }
+
+  function load() {
+    var url = urlFromLocation();
+    if (!url) { show("setup"); $("sub").textContent = "Not connected"; return; }
+    show("app");
+    var cached = store(KEY_CACHE);
+    if (cached && !tasks.length) { try { var c = JSON.parse(cached); tasks = c.tasks; lastOk = c.at; render(); tick(); } catch (e) {} }
+    var bust = (url.indexOf("?") < 0 ? "?" : "&") + "_=" + Math.floor(Date.now() / 60000); // beat the 5-min CDN cache a little
+    fetch(url + bust, { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (data) {
+        tasks = data.tasks || []; lastOk = Date.now();
+        store(KEY_CACHE, JSON.stringify({ tasks: tasks, at: lastOk }));
+        render(); tick();
+      })
+      .catch(function (e) {
+        $("status").innerHTML = ""; var s = el("span", "err", "Couldn't refresh (" + e.message + "). Showing the last saved list."); $("status").appendChild(s);
+        if (!tasks.length) { $("sub").textContent = "Offline"; }
+      });
+  }
+
+  $("save").addEventListener("click", function () {
+    var v = $("url").value.trim();
+    if (!/^https:\/\//.test(v)) { $("url").focus(); return; }
+    store(KEY_URL, v); tasks = []; load();
+  });
+  $("settings").addEventListener("click", function () { $("url").value = store(KEY_URL) || ""; show("setup"); });
+  $("refresh").addEventListener("click", load);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+  setInterval(tick, 1000);
+  setInterval(function () { if (!document.hidden) { load(); } }, 5 * 60 * 1000);
+  setInterval(render, 60 * 1000); // regroup and recolour as deadlines approach
+  load();
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+})();
+</script>
+</body>
+</html>

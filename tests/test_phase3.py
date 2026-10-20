@@ -155,14 +155,20 @@ def test_failure_raises_and_leaves_state_for_retry(conn, cfg):
     assert len(posts(http)) == 3
 
 
-def test_unicode_title_is_in_body_not_headers(conn, cfg):
+def test_unicode_title_is_mime_encoded_and_alert_is_rich(conn, cfg):
+    from email.header import decode_header, make_header
+
     add(conn, "a", 30)
     http = FakeHttp()
     ntfy.reconcile(cfg, conn, NOW, http)
     _, _, kw = http.calls[0]
-    assert "ü".encode() in kw["data"]
-    for v in kw["headers"].values():
-        v.encode("latin-1")
+    h = kw["headers"]
+    for v in h.values():
+        v.encode("latin-1")  # every header is plain ASCII on the wire
+    title = str(make_header(decode_header(h["Title"])))
+    assert "ü" in title and title.startswith("📅 Due in 24 hours")
+    assert h["Markdown"] == "yes" and h["Actions"].startswith("view, Open course, https://x.example/a")
+    assert b"Bookmarks bar/Courses" in kw["data"]
 
 
 def test_not_configured_is_a_noop(conn, cfg):
