@@ -75,3 +75,30 @@ def test_backup_creates_once_per_day_and_keeps_last_n(tmp_path):
     restored = db.connect(files[-1])
     assert restored.execute("SELECT title FROM tasks").fetchone()[0] == "X"
     assert not list((tmp_path / "backups").glob("*.tmp"))
+
+
+def test_hourly_run_picks_up_new_bookmarks_and_survives_a_missing_file(tmp_path):
+    import json
+    from dataclasses import replace
+
+    from tracker import extractor
+    from tracker.config import load_config
+
+    profile = tmp_path / "P"
+    profile.mkdir()
+    cfg = replace(load_config(), chrome_user_data_dir=tmp_path, chrome_profile="P", bookmark_folders="ALL")
+    node = lambda g, n: {"type": "url", "guid": g, "name": n, "url": f"https://x.example/{g}"}  # noqa: E731
+    marks = {"roots": {"bookmark_bar": {"type": "folder", "name": "Bookmarks bar", "children": [node("a", "A")]}}}
+    (profile / "Bookmarks").write_text(json.dumps(marks), encoding="utf-8")
+    conn = db.connect(tmp_path / "t.db")
+    extractor.sync_bookmarks(conn, cfg)
+    marks["roots"]["bookmark_bar"]["children"].append(node("b", "B"))  # you bookmark a page later
+    (profile / "Bookmarks").write_text(json.dumps(marks), encoding="utf-8")
+    extractor.sync_bookmarks(conn, cfg)
+    assert [r["title"] for r in db.list_tasks(conn, "UNSCHEDULED")] == ["A", "B"]
+    (profile / "Bookmarks").unlink()
+    try:
+        extractor.sync_bookmarks(conn, cfg)
+    except RuntimeError:
+        pass
+    assert len(db.list_tasks(conn, "UNSCHEDULED")) == 2  # a failed read changes nothing

@@ -4,7 +4,7 @@ import msvcrt
 import time
 from contextlib import contextmanager
 
-from . import backup, db, mobile, notify, ntfy, outbox, wallpaper
+from . import backup, db, extractor, mobile, notify, ntfy, outbox, wallpaper
 from .config import ROOT, Config
 from .timeutil import now_utc
 
@@ -48,6 +48,7 @@ def run_once(cfg: Config, wait_seconds: float = 0) -> bool:
         try:
             now = now_utc()
             for step, fn in (
+                ("bookmarks", lambda: extractor.sync_bookmarks(conn, cfg)),  # new bookmarks land in Unscheduled
                 ("backup", lambda: backup.backup_daily(cfg.db_path, now.astimezone(cfg.tz))),
                 ("notifications", lambda: notify.evaluate(conn, now, notify.make_toast_sender(cfg, now), cfg.reminder_settings)),
                 ("wallpaper", lambda: wallpaper.refresh(cfg, conn, now)),
